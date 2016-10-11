@@ -12,6 +12,10 @@
  
  class Freeroom{
  	public function getFreeroom($args){
+//FUCK!!!
+$args['borrowDate'] = str_replace("31'","30'",$args['borrowDate']);
+$args['borrowDate'] = str_replace("1'","2'",$args['borrowDate']);
+
  		$url = 'http://hub.m.hust.edu.cn/aam/room/selectFreeRoom.action' .
  				'?buildingCode=' .$args['buildingCode'].
  				'&borrowDate=' .$args['borrowDate'].
@@ -22,7 +26,7 @@
  		$header = array (
 			'Cookie:'.Redis::get($user_id.'_cookie'),
 		); 
- 		//var_dump($this->_get_content($url, $header));
+ 
  		return $this->_get_content($url, $header);
  	}
  	

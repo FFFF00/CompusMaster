@@ -30,6 +30,15 @@ class ClassroomController extends Controller
 		return $this->success($cookie); 
 	}
 	
+	private function _loginByArgs($args){
+								
+		$cookie = Thief::get('Login')->s_login($args);
+		if($cookie == null){
+			return $this->fail();
+		}
+		return $this->success($cookie); 
+	}
+	
 	public function getFreeroom(Request $req){
 		$args = [
 			'user_id' => $req->input('user_id'),
@@ -45,8 +54,19 @@ class ClassroomController extends Controller
             'section' => 'sometimes|regex:/\W\d*-\d*[\xe0-\xef][\x80-\xbf]{1}\W/Ui',
         ]);
         
-        if ($validator->fails())
-            return $this->fail(402, 'invalid args');
+        if ($validator->fails()){
+        	$date = date("Y-m-d");	        			
+        	if(!Cache::get($date.'_storageFreeroom'))
+        		$this->_storageFreeroom();
+        				
+        	$json = $this->_getFreeroomFromCache($args);        	
+        }else{
+        	$json = $this->_getFreeroomFromWXY($args);            	
+        }
+        return $this->success($json);         
+	}
+	
+	private function _getFreeroomFromWXY($args){		
             
         if(!Redis::get($args['user_id'].'_cookie'))
         	return $this->fail(401, 'this user has not logged in');
@@ -71,19 +91,15 @@ class ClassroomController extends Controller
 			for($i = $begin; $i <= $end; $i ++){
 				$args['buildingCode'] = $buildingCodeArr[$i];
 				$j = $this->_autoSection($args);
-				if($j == 302)
-					return $this->fail(401, 'cookie is out of date , login again');
+				
 				array_push($json, $j);
 			}	
 		}else{
 			$json = $this->_autoSection($args);
-		}
-		
-		if($json == 302 || $json == 409)
-			return $this->fail(401, 'cookie is out of date , login again');
-		
+		}		
 		$json = ['json' => $json];
-		return $this->success($json);
+		//return $this->success($json);
+		return $json;
 	}
 	
 	private function _pinyingAnalysis($json){
@@ -105,8 +121,7 @@ class ClassroomController extends Controller
 			for($i = 1; $i < 12; $i += 2){
 				$args['section'] = "'".$i.'-'.($i + 1).'节'."'";
 				$j = $this->_getResultJson($args);    
-				if($j == 302 || $j == 409)
-					return 302;
+				
 				$j = $this->_pinyingAnalysis($j);
 				array_push($json, $j);
 			}
@@ -120,11 +135,7 @@ class ClassroomController extends Controller
 	private function _getResultJson($args){
 		$json = '';
 		//get content from HUST weixiaoyuan
-		$content = Thief::get('Freeroom')->getFreeroom($args);
-		if($content == null)
-			return 409;
-		if($content == 302)
-			return 302;
+		$content = Thief::get('Freeroom')->getFreeroom($args);		
 		//
 		preg_match('/var json=(.*);/iU', $content, $data);
 		$json = substr($data[1], 1, -1);
@@ -132,6 +143,86 @@ class ClassroomController extends Controller
 		if($json == '' || $json == null){
 			$json = 'no data';
 		}
+		return $json;
+	}	
+	
+	private function _storageFreeroom(){
+		$data = date("Y-m-d");
+		
+		$login_args = [
+			'user_id' => 'U201414564',
+			'password' => '110017',
+		];
+				
+		$freeroom_args = [
+			'user_id' => 'U201414564',
+            'buildingCode' => "'0000,所有教学楼'",
+            'borrowDate' => "'".$data."'",
+            'section' => null,
+        ];
+        
+        $this->_loginByArgs($login_args);
+        $json = $this->_getFreeroomFromWXY($freeroom_args);  
+        $json = $json['json'];
+        foreach($json as $js){
+        	foreach($js as $j){
+        		Cache::put($data.$j['buildingCode'].$j['section'].'_storageFreeroom', $j, 24 * 60);	
+        	}        		
+        }              
+        Cache::put($data.'_storageFreeroom', $json, 24 * 60);
+        return ;
+	}
+	
+	private function _getFreeroomFromCache($args = null){
+		$date = date("Y-m-d");
+		$data = Cache::get($date.'_storageFreeroom');
+		//$data = json_decode($data ,1);
+		if($args == null){
+			return $data;	
+		}
+		
+		$buildingCodeArr = array("C050","C120","C121",
+ 								 "D050","D091","D092",
+  								 "D093","D094","D120");
+        $SP_buildingCode = array("'D090,东九楼'","'C122,西十二楼'","'0000,所有教学楼'");
+		//if buildingCode is a special one 
+		if(in_array($args['buildingCode'], $SP_buildingCode)){
+			if($args['buildingCode'] === "'C122,西十二楼'"){
+				$begin = 1; $end = 2;
+			}
+			if($args['buildingCode'] === "'D090,东九楼'"){
+				$begin = 4; $end = 7;
+			}
+			if($args['buildingCode'] === "'0000,所有教学楼'"){
+				$begin = 0; $end = 8;
+			}
+			//get buildingCode from array, visit recourse a few times 	
+			$json = array();
+			for($i = $begin; $i <= $end; $i ++){
+				$args['buildingCode'] = $buildingCodeArr[$i];
+				$j = $this->_getFreeroomFromCacheAutoSection($args, $date);				
+				array_push($json, $j);
+			}
+		}else{
+			$json = $this->_getFreeroomFromCacheAutoSection($args, $date);
+		}
+		return $json;
+	}
+	
+	private function _getFreeroomFromCacheAutoSection($args, $date){
+		$json = array();
+		
+		if($args['section'] == null){
+			for($i = 1; $i < 12; $i += 2){
+				$args['section'] = $i.'-'.($i + 1).'节';
+				$j = Cache::get($date.$args['buildingCode'].$args['section'].'_storageFreeroom'); 					
+				array_push($json, $j);
+			}
+			return $json;
+		}
+		$args['section'] = trim($args['section'], "'");
+		$j = Cache::get($date.$args['buildingCode'].$args['section'].'_storageFreeroom'); 					
+		array_push($json, $j);		
 		return $json;
 	}
 	
