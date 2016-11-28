@@ -57,8 +57,9 @@ class LibraryController extends Controller
     {
         $name = $req->input('name');
         $uid = $req->input('uid');
+        $pin = $req->input('pin');
 
-        $result = Fetcher::get('Library')->borrowHistory($name, $uid);
+        $result = Fetcher::get('Library')->borrowHistory($name, $uid, $pin);
         if ($result === false) {
             return $this->fail(401, 'login failed.');
         }

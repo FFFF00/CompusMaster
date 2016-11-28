@@ -42,7 +42,7 @@ class AuthThiefController extends Controller{
 			return $this->fail();
 		}
 		return $this->success($cookie); 
-	}
+	}	
 	
 	public function refresh(Request $req){
 		$args = [

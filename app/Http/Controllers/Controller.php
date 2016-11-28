@@ -65,5 +65,13 @@ abstract class Controller extends BaseController
 
         return response()->json($json);
     }
+    
+    protected function loginByArgs($args){								
+		$cookie = Thief::get('Login')->s_login($args);
+		if($cookie == null){
+			return $this->fail();
+		}
+		return $this->success($cookie); 
+	}
 }
 

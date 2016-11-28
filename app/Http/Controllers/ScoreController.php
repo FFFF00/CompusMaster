@@ -26,7 +26,7 @@ class ScoreController extends Controller{
 		];
 		
 		//validate
-		 $validator = Validator::make($args, [
+		$validator = Validator::make($args, [
             'user_id' => 'required|regex:/U\d{9}/Ui',
             'model' => 'sometimes|in:detail,outline,english',        
             'term' => 'required_if:model,detail|integer',

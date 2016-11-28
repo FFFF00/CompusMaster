@@ -14,8 +14,7 @@ class Login extends Tools{
 	public function s_login($args){
 		$user_id = $args['user_id'];
 		$password = $args['password'];
-$user_id = 'U201414564';
-$password = '110017';
+
 		$url = 'https://pass.hust.edu.cn/cas/login' .
 				'?service=http%3A%2F%2Fhub.m.hust.edu.cn%2F';
 	 	$cookie = $this->_get_cookie($url);
@@ -49,6 +48,17 @@ $password = '110017';
 	    //Cache::put('url', $url_str[1], 30*24);//var_dump(Redis::get('url'));
 	    
 	    return Redis::get($user_id.'_cookie');
+ 	}
+ 	
+ 	public function s_login_default(){
+ 		$args['user_id'] = 'U201414564';
+		$args['password'] = '110017';
+		
+		if(! Redis::get($args['user_id'].'_cookie')){
+			Redis::set($cache_key, serialize($data));
+			return $this->s_login($args);	
+		}	
+		return 	Redis::get($args['user_id'].'_cookie');
  	}
  	 																																		
 	private function _login_post($url, $post, $header, $user_id) { 
@@ -121,13 +131,13 @@ $password = '110017';
 	}
 	
 	private function decToHex($n){
-		$r='';
+		$r = '';
 		while ($n){
 		  //$n����2����$m������$k
 		  $k = 0;
 		  $m = '';
 		  do{
-		    $k = $k*10 + substr($n,0,1);
+		    $k = $k * 10 + substr($n, 0, 1);
 		    if ($m != '' || $k > 1) $m .= floor($k/16);
 		    $k = $k % 16;
 		    $n = substr($n,1);

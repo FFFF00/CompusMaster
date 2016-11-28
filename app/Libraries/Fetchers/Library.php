@@ -169,12 +169,13 @@ class Library extends Spider
     }
 
 
-    public function borrowHistory($borrower, $uid)
+    public function borrowHistory($borrower, $uid, $pin)
     {
         $curl = $this->curl();
         $internal_uid = $this->_getInternalUserId([
             'name' => $borrower,
             'code' => $uid,
+            'pin' => $pin,
         ], $curl);
         if ( ! $internal_uid ) return false;
 
@@ -230,13 +231,21 @@ class Library extends Spider
         $resp = $this->_loginBorrowPage($args, $curl);
         $headers = $resp->responseHeaders;
 
-        // login failed
+        // login failed, create pin
+        if (! isset($headers['Location'])){
+        	$args['pin1'] = $args['pin'];
+        	$args['pin2'] = $args['pin'];
+        	$resp = $this->_loginBorrowPage($args, $curl);
+        	$headers = $resp->responseHeaders;
+        }
+             
+        //login failed
         if (! isset($headers['Location'])) return null;
+        
         preg_match('/chx\/(\d+)\//i', $headers['Location'], $ma);
 
         return $ma ? $ma[1] : null;
     }
-
 
     private function _loginBorrowPage($args, $curl=null)
     {
@@ -246,11 +255,11 @@ class Library extends Spider
             $curl = new \Curl\Curl;
             $curl->setCookieFile(tmpfile());
         }
-
+        
         $curl->post($login_url, $args);
+        
         return $curl;
     }
-
 
     private function _parseBorrowHistory($row)
     {

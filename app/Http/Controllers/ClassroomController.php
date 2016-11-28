@@ -18,6 +18,7 @@ use App\RoomCourse;
 
 class ClassroomController extends Controller
 {
+	//已经弃用
 	public function login(Request $req){
 		$args = [
 			'user_id' => $req->input('user_id'),
@@ -175,25 +176,26 @@ class ClassroomController extends Controller
 	
 	private function _getFreeroomFromCache($args = null){
 		$date = date("Y-m-d");
-		$data = Cache::get($date.'_storageFreeroom');
 		//$data = json_decode($data ,1);
 		if($args == null){
+			$data = Cache::get($date.'_storageFreeroom');
 			return $data;	
 		}
-		
+		$args['buildingCode'] = substr($args['buildingCode'], 1, 4);
+
 		$buildingCodeArr = array("C050","C120","C121",
  								 "D050","D091","D092",
   								 "D093","D094","D120");
-        $SP_buildingCode = array("'D090,东九楼'","'C122,西十二楼'","'0000,所有教学楼'");
+        $SP_buildingCode = array("D090","C122","0000");
 		//if buildingCode is a special one 
 		if(in_array($args['buildingCode'], $SP_buildingCode)){
-			if($args['buildingCode'] === "'C122,西十二楼'"){
+			if($args['buildingCode'] === "C122"){
 				$begin = 1; $end = 2;
 			}
-			if($args['buildingCode'] === "'D090,东九楼'"){
+			if($args['buildingCode'] === "D090"){
 				$begin = 4; $end = 7;
 			}
-			if($args['buildingCode'] === "'0000,所有教学楼'"){
+			if($args['buildingCode'] === "0000"){
 				$begin = 0; $end = 8;
 			}
 			//get buildingCode from array, visit recourse a few times 	
@@ -206,6 +208,7 @@ class ClassroomController extends Controller
 		}else{
 			$json = $this->_getFreeroomFromCacheAutoSection($args, $date);
 		}
+		$json = ['json' => $json];
 		return $json;
 	}
 	
